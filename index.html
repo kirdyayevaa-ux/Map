@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Зона 5 км — ул. Саяна Шаймерденова, 29, Алматы</title>
+<style>
+  html, body { height: 100%; margin: 0; padding: 0; }
+  #map { width: 100%; height: 100vh; }
+  .note { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 8px 10px; border-radius: 6px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+</style>
+<script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
+<script>
+  ymaps.ready(function () {
+    var center = [43.198486, 76.855445]; // Шаймерденова, 29
+    var myMap = new ymaps.Map("map", {
+        center: center,
+        zoom: 12,
+        controls: ["zoomControl", "geolocationControl", "typeSelector", "fullscreenControl"]
+    });
+
+    // Маркер центра
+    var centerPlacemark = new ymaps.Placemark(center, {
+        balloonContentHeader: "Центр зоны",
+        balloonContentBody: "ул. Саяна Шаймерденова, 29, Алматы<br/>Координаты: 43.198486, 76.855445",
+        hintContent: "Шаймерденова, 29"
+    }, {
+        preset: "islands#redCircleIcon"
+    });
+
+    // Окружность радиусом 5 км
+    var circle = new ymaps.Circle([ center, 5000 ], {
+        balloonContent: "Радиус 5 км от Шаймерденова, 29"
+    }, {
+        fillOpacity: 0.3,
+        strokeOpacity: 0.9,
+        strokeWidth: 2
+    });
+
+    myMap.geoObjects.add(circle).add(centerPlacemark);
+    myMap.setBounds(circle.geometry.getBounds(), { checkZoomRange: true, zoomMargin: 40 });
+  });
+</script>
+</head>
+<body>
+<div class="note">Зона радиусом 5 км вокруг: <b>ул. Саяна Шаймерденова, 29, Алматы</b><br>Можно двигать карту и включать разные слои.</div>
+<div id="map"></div>
+</body>
+</html>
