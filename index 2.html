@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Изодистанция 5 км (машина) — Шаймерденова 29, Алматы</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { width: 100%; height: 100vh; }
+    .panel {
+      position: absolute; top: 10px; left: 10px; z-index: 1000;
+      background: rgba(255,255,255,0.95); padding: 10px 12px; border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px;
+      max-width: 340px;
+    }
+    .panel label { display: block; margin-top: 6px; font-weight: 600; }
+    .panel input, .panel select, .panel button {
+      width: 100%; margin-top: 4px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px;
+    }
+    .panel button { cursor: pointer; }
+    .hint { font-size: 12px; color: #666; margin-top: 6px; }
+    .error { color: #b00020; margin-top: 6px; font-size: 13px; }
+    .ok { color: #0a7a0a; margin-top: 6px; font-size: 13px; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel">
+  <div><b>Изодистанция по дорогам</b></div>
+  <label>API ключ OpenRouteService</label>
+  <input id="apiKey" type="text" placeholder="Вставьте API ключ" value="eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjFmZmM5ZjUxYTY5MTRmMmY5YWY3NjRhMWUxNWFmNDEyIiwiaCI6Im11cm11cjY0In0=0">
+  <label>Режим</label>
+  <select id="profile">
+    <option value="driving-car" selected>Машина</option>
+    <option value="foot-walking">Пешком</option>
+    <option value="cycling-regular">Велосипед</option>
+  </select>
+  <label>Дистанция, м</label>
+  <input id="distance" type="number" min="100" step="100" value="5000">
+  <button id="runBtn">Построить зону</button>
+  <div class="hint">Центр: ул. Саяна Шаймерденова, 29 (43.198486, 76.855445)</div>
+  <div id="status"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+  const center = [43.198486, 76.855445]; // lat, lon
+  const map = L.map('map').setView(center, 13);
+
+  // Tile layer (OSM, свободная)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+
+  const centerMarker = L.marker(center).addTo(map).bindPopup('Шаймерденова, 29 — центр зоны');
+
+  let isoLayer = null;
+
+  async function buildIsochrone() {
+    const key = document.getElementById('apiKey').value.trim();
+    const profile = document.getElementById('profile').value;
+    const dist = Number(document.getElementById('distance').value);
+    const status = document.getElementById('status');
+
+    status.className = ''; status.textContent = 'Строю зону...';
+
+    if (!key) {
+      status.className = 'error';
+      status.textContent = 'Вставьте API ключ OpenRouteService.';
+      return;
+    }
+    if (!Number.isFinite(dist) || dist <= 0) {
+      status.className = 'error';
+      status.textContent = 'Введите корректную дистанцию в метрах.';
+      return;
+    }
+
+    const body = {
+      "locations": [[center[1], center[0]]],   // [lon, lat]
+      "range": [dist],
+      "range_type": "distance",
+      "units": "m",
+      "attributes": ["area", "reachfactor", "total_pop"],
+      "smoothing": 0.3,
+      "intersections": false
+    };
+
+    try {
+      const resp = await fetch(`https://api.openrouteservice.org/v2/isochrones/${profile}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': key
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error('Ошибка API (' + resp.status + '): ' + txt);
+      }
+
+      const geo = await resp.json();
+
+      if (isoLayer) {
+        map.removeLayer(isoLayer);
+      }
+      isoLayer = L.geoJSON(geo, {
+        style: function() { return { weight: 2, fillOpacity: 0.25 }; }
+      }).addTo(map);
+
+      map.fitBounds(isoLayer.getBounds(), { padding: [20, 20] });
+      status.className = 'ok';
+      status.textContent = 'Готово. Зону можно менять (профиль/дистанция) и строить снова.';
+    } catch (e) {
+      status.className = 'error';
+      status.textContent = e.message;
+      console.error(e);
+    }
+  }
+
+  document.getElementById('runBtn').addEventListener('click', buildIsochrone);
+
+  // Автопостроение при загрузке
+  buildIsochrone();
+</script>
+</body>
+</html>
